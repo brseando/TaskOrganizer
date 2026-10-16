@@ -1,0 +1,8 @@
+Flask==3.0.3
+Flask-SQLAlchemy==3.1.1
+
+# Used by windows/tray_app.py (system tray icon + generating it with Pillow).
+# PyInstaller itself is a build-only tool, installed separately by
+# windows/build.bat rather than listed here.
+pystray==0.19.5
+Pillow==12.3.0

@@ -1,0 +1,43 @@
+# Publishes the iPhone/Android app (mobile/) to GitHub Pages whenever the
+# shared UI or the phone files change on the main branch. One-time setup:
+# repository Settings -> Pages -> Source: "GitHub Actions". See README.md.
+name: Publish phone app
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/static/**"
+      - "app/templates/**"
+      - "mobile/**"
+      - ".github/workflows/publish-phone-app.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build the phone app
+        run: python mobile/build.py
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: mobile/dist
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv/
+.venv-win/
+venv/
+instance/
+*.db
+.DS_Store
+
+# PyInstaller build output (see windows/build.bat, macos/build.sh)
+dist/
+build/
+windows/icon.ico
+macos/icon.icns

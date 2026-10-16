@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en"{% if theme in ("light", "dark") %} data-theme="{{ theme }}"{% endif %}>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Task Organizer</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='4' width='56' height='56' rx='12' fill='%232563eb'/%3E%3Cpath d='M16 20h32M16 32h32M16 44h32' stroke='white' stroke-width='5'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="mobile-topbar">
+      <button type="button" class="icon-button" data-action="toggle-sidebar" aria-label="Menu">
+        <svg viewBox="0 0 24 24" width="22" height="22"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <span class="mobile-title">Task Organizer</span>
+      <span id="mobile-timer" class="mobile-timer"></span>
+    </header>
+
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <span class="brand-logo"><svg viewBox="0 0 64 64" width="26" height="26"><rect x="4" y="4" width="56" height="56" rx="12" fill="var(--accent)"/><path d="M16 20h32M16 32h32M16 44h32" stroke="white" stroke-width="5"/></svg></span>
+        <span class="brand-name">Task Organizer</span>
+      </div>
+
+      <nav class="nav" id="nav">
+        <a href="#/today" data-view="today"><span class="nav-icon">&#9728;</span>Today<kbd>1</kbd></a>
+        <a href="#/tasks" data-view="tasks"><span class="nav-icon">&#9776;</span>Tasks<kbd>2</kbd></a>
+        <a href="#/calendar" data-view="calendar"><span class="nav-icon">&#9638;</span>Calendar<kbd>3</kbd></a>
+        <a href="#/focus" data-view="focus"><span class="nav-icon">&#9201;</span>Focus<kbd>4</kbd></a>
+        <a href="#/insights" data-view="insights"><span class="nav-icon">&#9636;</span>Insights<kbd>5</kbd></a>
+        <a href="#/settings" data-view="settings"><span class="nav-icon">&#9881;</span>Settings<kbd>6</kbd></a>
+      </nav>
+
+      <div class="sidebar-section">
+        <div class="sidebar-section-header">
+          <span>Classes &amp; activities</span>
+          <button type="button" class="icon-button small" data-action="new-category" title="New class or activity">+</button>
+        </div>
+        <ul class="sidebar-categories" id="sidebar-categories"></ul>
+      </div>
+
+      <div class="sidebar-footer">
+        <div id="sidebar-timer"></div>
+        <div id="sidebar-network" class="sidebar-network"></div>
+      </div>
+    </aside>
+    <div class="sidebar-backdrop" data-action="toggle-sidebar"></div>
+
+    <main class="main">
+      <div id="banner-area"></div>
+      <div id="view" class="view">
+        <div class="loading">Loading&hellip;</div>
+      </div>
+    </main>
+  </div>
+
+  <div id="drawer-root"></div>
+  <div id="modal-root"></div>
+  <div id="toast-root" class="toast-root"></div>
+
+  <script type="module" src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
