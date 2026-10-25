@@ -6,7 +6,9 @@ import {
   addDays,
   esc,
   fmtMinutes,
+  generalTaskFor,
   getCategory,
+  listedTasks,
   refresh,
   sortByDue,
   sortByPriority,
@@ -63,6 +65,17 @@ function sorter() {
   }[filters.sort];
 }
 
+/** Start/stop a timer on the class as a whole, not tied to one of its tasks. */
+function studyButton(cat) {
+  const general = generalTaskFor(cat.id);
+  if (general?.timer_running) {
+    return `<button type="button" class="btn sm danger" data-action="stop-timer" data-task-id="${general.id}" title="Stop the general study timer">${ICONS.stop} <span class="mono" data-elapsed-since="${esc(general.timer_start_time)}"></span></button>`;
+  }
+  return `
+    <button type="button" class="btn sm success" data-action="start-category-timer" data-category-id="${cat.id}" title="Track general study time on ${esc(cat.name)}, not tied to a task">${ICONS.play} Study</button>
+    <a class="btn sm ghost" href="#/focus?cat=${cat.id}" title="Start a countdown or Pomodoro on ${esc(cat.name)}">Focus</a>`;
+}
+
 function groupHtml(cat, tasks) {
   const p = cat.period;
   const kind = cat.kind === "class" ? "Class" : "Activity";
@@ -76,6 +89,7 @@ function groupHtml(cat, tasks) {
         ${p.estimated ? `<span class="chip accent" title="Estimated time left on open tasks due this period">Left ${fmtMinutes(p.estimated)}</span>` : ""}
         ${p.actual ? `<span class="chip success" title="Time tracked this period">Actual ${fmtMinutes(p.actual)}</span>` : ""}
         <div class="header-actions">
+          ${studyButton(cat)}
           <button type="button" class="btn sm ghost" data-action="new-task" data-category-id="${cat.id}">+ Task</button>
           <button type="button" class="icon-button small" data-action="edit-category" data-category-id="${cat.id}" title="Edit">&#9998;</button>
           <button type="button" class="icon-button small" data-action="delete-category" data-category-id="${cat.id}" title="Delete">&times;</button>
@@ -100,7 +114,7 @@ function resultsHtml() {
       </section>`;
   }
 
-  const tasks = state.tasks.filter(matches).sort(sorter());
+  const tasks = listedTasks().filter(matches).sort(sorter());
   const filtering = filters.q || filters.priority !== "all" || filters.due !== "all";
 
   if (!filters.group) {

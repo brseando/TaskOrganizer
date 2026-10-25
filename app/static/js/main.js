@@ -5,6 +5,7 @@
 import { installAudioUnlock, notify, playChime } from "./alerts.js";
 import {
   ICONS,
+  api,
   esc,
   fmtClock,
   fmtDuration,
@@ -313,13 +314,16 @@ registerActions({
     if (task && (await deleteTask(task))) closeDrawer();
   },
   "start-timer": (el) => mutate("POST", `/api/tasks/${el.dataset.taskId}/timer/start`),
+  "start-category-timer": (el) => mutate("POST", `/api/categories/${el.dataset.categoryId}/timer/start`),
   "stop-timer": (el) => mutate("POST", `/api/tasks/${el.dataset.taskId}/timer/stop`),
   "stop-any-timer": () => mutate("POST", "/api/timer/stop", undefined, "Timer stopped"),
   "complete-task": async (el) => {
     const task = getTask(el.dataset.taskId);
     const result = await mutate("POST", `/api/tasks/${el.dataset.taskId}/complete`);
     if (result && task) {
-      toast(result.next_task ? `Done! Next "${task.title}" scheduled.` : `Marked "${task.title}" done.`, "success");
+      toast(result.next_task ? `Done! Next "${task.title}" scheduled.` : `Marked "${task.title}" done.`, "success", {
+        action: { label: "Undo", onClick: () => undoComplete(task, result.next_task) },
+      });
     }
   },
   "reopen-task": (el) => mutate("POST", `/api/tasks/${el.dataset.taskId}/reopen`, undefined, "Task reopened"),
@@ -342,6 +346,18 @@ registerActions({
   },
   "show-shortcuts": () => showShortcuts(),
 });
+
+/** Reopen a task that was just completed, removing the repeat it scheduled. */
+async function undoComplete(task, nextTask) {
+  try {
+    if (nextTask) await api("DELETE", `/api/tasks/${nextTask.id}`);
+    await api("POST", `/api/tasks/${task.id}/reopen`);
+    toast(`Reopened "${task.title}".`, "success");
+  } catch (err) {
+    toast(err.message, "error");
+  }
+  await refresh();
+}
 
 registerForms({
   "banner-trim": async (form, values) => {

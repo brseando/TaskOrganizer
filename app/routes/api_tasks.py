@@ -38,7 +38,7 @@ def serialize_task(task):
 
 def serialize_log(log):
     data = log.to_dict()
-    data["task_title"] = log.task.title
+    data["task_title"] = log.task.display_title
     data["category_id"] = log.task.category_id
     data["category_color"] = log.task.category.color
     return data
@@ -65,7 +65,7 @@ def state():
     tasks = Task.query.all()
     open_counts = {}
     for t in tasks:
-        if t.status != "done":
+        if t.status != "done" and not t.is_general:
             open_counts[t.category_id] = open_counts.get(t.category_id, 0) + 1
 
     return jsonify(
@@ -199,6 +199,8 @@ def create_task():
 @bp.route("/tasks/<int:task_id>", methods=["PATCH", "POST"])
 def edit_task(task_id):
     task = db.get_or_404(Task, task_id)
+    if task.is_general:
+        return json_error("General study time can't be edited like a task.")
     error = _apply_task_fields(task, payload())
     if error:
         db.session.rollback()
@@ -218,6 +220,8 @@ def delete_task(task_id):
 @bp.route("/tasks/<int:task_id>/complete", methods=["POST"])
 def complete_task(task_id):
     task = db.get_or_404(Task, task_id)
+    if task.is_general:
+        return json_error("General study time can't be marked done.")
     now = datetime.now()
     active = task.active_time_log
     if active:
@@ -232,7 +236,8 @@ def complete_task(task_id):
 @bp.route("/tasks/<int:task_id>/reopen", methods=["POST"])
 def reopen_task(task_id):
     task = db.get_or_404(Task, task_id)
-    task.status = "todo"
+    # Back to "in progress" if time was already tracked on it.
+    task.status = "in_progress" if task.time_logs else "todo"
     task.completed_at = None
     db.session.commit()
     return json_ok(task=serialize_task(task))

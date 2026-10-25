@@ -56,6 +56,7 @@ export function upgrade(db) {
   for (const key of Object.keys(fresh)) db[key] ??= fresh[key];
   db.settings = { ...DEFAULT_SETTINGS, ...db.settings };
   db.focus_timer = { ...DEFAULT_FOCUS, ...db.focus_timer };
+  for (const task of db.tasks) task.is_general ??= false;
   return db;
 }
 

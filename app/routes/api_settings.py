@@ -211,7 +211,7 @@ def export_time_logs():
                 log.start_time.strftime("%H:%M"),
                 log.end_time.strftime("%H:%M") if log.end_time else "running",
                 round(log.duration_seconds / 60, 1),
-                log.task.title,
+                log.task.display_title,
                 log.task.category.name,
                 log.effective_source,
                 log.note or "",

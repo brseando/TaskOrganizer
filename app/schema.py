@@ -33,6 +33,7 @@ COLUMN_MIGRATIONS = [
     ("settings", "sound_enabled", "BOOLEAN NOT NULL DEFAULT 1"),
     ("time_logs", "source", "VARCHAR(20)"),
     ("time_logs", "note", "TEXT"),
+    ("tasks", "is_general", "BOOLEAN NOT NULL DEFAULT 0"),
 ]
 
 MAX_PRE_UPGRADE_BACKUPS = 5

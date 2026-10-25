@@ -6,7 +6,7 @@
 // open session first.
 
 import { isoLocal } from "./dates.js";
-import { effectiveSource, findById, focusEndsAt, focusRemainingSeconds, insert } from "./models.js";
+import { displayTitle, effectiveSource, findById, focusEndsAt, focusRemainingSeconds, insert } from "./models.js";
 
 export function activeLog(db) {
   return db.time_logs.find((l) => l.end_time === null) || null;
@@ -165,7 +165,7 @@ export function serializeActiveLog(db, log) {
   return {
     log_id: log.id,
     task_id: log.task_id,
-    task_title: task.title,
+    task_title: displayTitle(db, task),
     category_color: category.color,
     start_time: isoLocal(log.start_time),
     source: effectiveSource(log),

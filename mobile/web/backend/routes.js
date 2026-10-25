@@ -29,9 +29,11 @@ import {
   categoryToDict,
   deleteCategory,
   deleteTask,
+  displayTitle,
   effectiveSource,
   findById,
   focusToDict,
+  generalTask,
   insert,
   logDuration,
   serializeLog,
@@ -102,7 +104,7 @@ function state(ctx) {
 
   const openCounts = {};
   for (const t of db.tasks) {
-    if (t.status !== "done") openCounts[t.category_id] = (openCounts[t.category_id] || 0) + 1;
+    if (t.status !== "done" && !t.is_general) openCounts[t.category_id] = (openCounts[t.category_id] || 0) + 1;
   }
 
   return {
@@ -201,6 +203,7 @@ function createTask({ db, data, now }) {
     status: "todo",
     is_recurring: false,
     recurrence_interval_days: null,
+    is_general: false,
     created_at: now,
     completed_at: null,
   };
@@ -211,6 +214,7 @@ function createTask({ db, data, now }) {
 
 function editTask({ db, data, params, now }) {
   const task = getOr404(db, "tasks", params[0]);
+  if (task.is_general) throw new HttpError("General study time can't be edited like a task.");
   applyTaskFields(db, task, data);
   return ok({ task: serializeTask(db, task, now) });
 }
@@ -222,6 +226,7 @@ function removeTask({ db, params }) {
 
 function completeTask({ db, params, now }) {
   const task = getOr404(db, "tasks", params[0]);
+  if (task.is_general) throw new HttpError("General study time can't be marked done.");
   const active = activeLogForTask(db, task);
   if (active) active.end_time = now;
   task.status = "done";
@@ -232,7 +237,8 @@ function completeTask({ db, params, now }) {
 
 function reopenTask({ db, params, now }) {
   const task = getOr404(db, "tasks", params[0]);
-  task.status = "todo";
+  // Back to "in progress" if time was already tracked on it.
+  task.status = db.time_logs.some((l) => l.task_id === task.id) ? "in_progress" : "todo";
   task.completed_at = null;
   return ok({ task: serializeTask(db, task, now) });
 }
@@ -243,6 +249,13 @@ function reopenTask({ db, params, now }) {
 
 function startTimer({ db, params, now }) {
   const task = getOr404(db, "tasks", params[0]);
+  const log = timers.startStopwatch(db, task, now);
+  return ok({ task_id: task.id, start_time: isoLocal(log.start_time) });
+}
+
+/** Track time on a class/activity as a whole (its general study task). */
+function startCategoryTimer({ db, params, now }) {
+  const task = generalTask(db, getOr404(db, "categories", params[0]), now);
   const log = timers.startStopwatch(db, task, now);
   return ok({ task_id: task.id, start_time: isoLocal(log.start_time) });
 }
@@ -275,8 +288,11 @@ function trimTimer({ db, data, now }) {
   return ok({ log: serializeLog(db, log, now) });
 }
 
-function logManualTime({ db, data, params, now }) {
-  const task = getOr404(db, "tasks", params[0]);
+const logManualTime = (ctx) => addManualLog(ctx, getOr404(ctx.db, "tasks", ctx.params[0]));
+const logManualCategoryTime = (ctx) => addManualLog(ctx, generalTask(ctx.db, getOr404(ctx.db, "categories", ctx.params[0]), ctx.now));
+
+/** Add a finished session by hand. Defaults to ending "just now"; an optional date/time back-dates it. */
+function addManualLog({ db, data, now }, task) {
   const minutes = parseInt_(data.minutes, { minimum: 1 });
   if (!minutes) throw new HttpError("Enter a number of minutes greater than 0.");
 
@@ -355,8 +371,15 @@ const focusResponse = ({ db, now }) => ok({ focus: focusToDict(db, db.focus_time
 function focusStart(ctx) {
   const { db, data, now } = ctx;
   const mode = ["countdown", "pomodoro"].includes(data.mode) ? data.mode : "countdown";
-  const taskId = parseInt_(data.task_id);
+  let taskId = parseInt_(data.task_id);
   if (taskId && !findById(db, "tasks", taskId)) throw new HttpError("That task no longer exists.");
+  // A focus session on a class as a whole, not one of its tasks.
+  const categoryId = parseInt_(data.category_id);
+  if (categoryId && !taskId) {
+    const category = findById(db, "categories", categoryId);
+    if (!category) throw new HttpError("That class or activity no longer exists.");
+    taskId = generalTask(db, category, now).id;
+  }
   let minutes;
   if (mode === "pomodoro") {
     minutes = db.settings.pomodoro_work_minutes;
@@ -458,7 +481,7 @@ function exportTimeLogs({ db, query, now }) {
       hhmm(log.start_time),
       log.end_time !== null ? hhmm(log.end_time) : "running",
       (Math.round((logDuration(log, now) / 60) * 10) / 10).toFixed(1),
-      task.title,
+      displayTitle(db, task),
       category.name,
       effectiveSource(log),
       log.note || "",
@@ -484,6 +507,8 @@ const ROUTES = [
   ["POST", "/api/categories", createCategory],
   ["PATCH POST", `/api/categories/${ID}`, editCategory],
   ["DELETE", `/api/categories/${ID}`, removeCategory],
+  ["POST", `/api/categories/${ID}/timer/start`, startCategoryTimer],
+  ["POST", `/api/categories/${ID}/timer/log`, logManualCategoryTime],
 
   ["POST", "/api/tasks", createTask],
   ["PATCH POST", `/api/tasks/${ID}`, editTask],

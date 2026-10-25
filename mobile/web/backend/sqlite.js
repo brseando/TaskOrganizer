@@ -77,6 +77,7 @@ CREATE TABLE tasks (
 	status VARCHAR(20) NOT NULL,
 	is_recurring BOOLEAN NOT NULL,
 	recurrence_interval_days INTEGER,
+	is_general BOOLEAN NOT NULL,
 	created_at DATETIME,
 	completed_at DATETIME,
 	PRIMARY KEY (id),
@@ -96,11 +97,11 @@ CREATE TABLE time_logs (
 
 // Column -> kind, for converting values. Anything not listed is copied as-is.
 const DATETIME_COLUMNS = new Set(["created_at", "due_date", "completed_at", "start_time", "end_time", "started_at", "finished_at"]);
-const BOOLEAN_COLUMNS = new Set(["is_recurring", "is_manual", "sync_enabled", "lan_access_enabled", "sound_enabled"]);
+const BOOLEAN_COLUMNS = new Set(["is_recurring", "is_general", "is_manual", "sync_enabled", "lan_access_enabled", "sound_enabled"]);
 
 const TABLE_COLUMNS = {
   categories: ["id", "name", "kind", "color", "created_at"],
-  tasks: ["id", "category_id", "title", "description", "due_date", "priority", "estimated_minutes", "status", "is_recurring", "recurrence_interval_days", "created_at", "completed_at"],
+  tasks: ["id", "category_id", "title", "description", "due_date", "priority", "estimated_minutes", "status", "is_recurring", "recurrence_interval_days", "is_general", "created_at", "completed_at"],
   time_logs: ["id", "task_id", "start_time", "end_time", "is_manual", "source", "note"],
   settings: ["id", ...Object.keys(DEFAULT_SETTINGS)],
   focus_timer: ["id", ...Object.keys(DEFAULT_FOCUS)],
@@ -198,6 +199,7 @@ export async function importSqlite(bytes) {
       t.priority ??= "medium";
       t.status ??= "todo";
       t.is_recurring ??= false;
+      t.is_general ??= false;
     }
     for (const l of db.time_logs) l.is_manual ??= false;
 

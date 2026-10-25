@@ -60,7 +60,7 @@ function cellsHtml() {
   const today = new Date();
   const byDay = {};
   for (const task of store.state.tasks) {
-    if (!task.due_date) continue;
+    if (!task.due_date || task.is_general) continue;
     const key = task.due_date.slice(0, 10);
     (byDay[key] ||= []).push(task);
   }

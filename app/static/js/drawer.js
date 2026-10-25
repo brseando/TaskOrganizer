@@ -215,7 +215,7 @@ export function openCategoryForm(category = null) {
 }
 
 export async function deleteCategory(category) {
-  const count = store.state.tasks.filter((t) => t.category_id === category.id).length;
+  const count = store.state.tasks.filter((t) => t.category_id === category.id && !t.is_general).length;
   const ok = await confirmDialog(
     `Delete "${category.name}"${count ? ` and its ${count} task${count === 1 ? "" : "s"} (including their tracked time)` : ""}? This can't be undone.`
   );
@@ -330,7 +330,10 @@ function renderDrawer() {
   const pct = est ? Math.min(100, (tracked / 60 / est) * 100) : 0;
   const over = est && tracked / 60 > est;
 
-  const statusChip = done
+  const general = task.is_general;
+  const statusChip = general
+    ? `<span class="chip">General study</span>`
+    : done
     ? `<span class="chip success">Done</span>`
     : task.is_overdue
       ? `<span class="chip danger">Overdue</span>`
@@ -382,18 +385,30 @@ function renderDrawer() {
       <div class="drawer-body">
         <div class="row">
           ${timerBtn}
-          ${done ? "" : `<a class="btn" href="#/focus?task=${task.id}" data-action="close-drawer-nav">Focus</a>`}
+          ${done ? "" : `<a class="btn" href="#/focus?${general ? `cat=${task.category_id}` : `task=${task.id}`}" data-action="close-drawer-nav">Focus</a>`}
           ${
-            done
+            general
+              ? ""
+              : done
               ? `<button type="button" class="btn" data-action="reopen-task" data-task-id="${task.id}">Reopen</button>`
               : `<button type="button" class="btn" data-action="complete-task" data-task-id="${task.id}">${ICONS.check.replace("<svg", '<svg width="12" height="12"')} Mark done</button>`
           }
-          <span class="spacer"></span>
+          ${
+            general
+              ? ""
+              : `<span class="spacer"></span>
           <button type="button" class="btn ghost" data-action="edit-task" data-task-id="${task.id}">Edit</button>
-          <button type="button" class="btn ghost danger-outline" data-action="delete-task" data-task-id="${task.id}">Delete</button>
+          <button type="button" class="btn ghost danger-outline" data-action="delete-task" data-task-id="${task.id}">Delete</button>`
+          }
         </div>
 
-        <div class="detail-grid">
+        ${
+          general
+            ? `<div class="detail-grid">
+          <div><div class="detail-label">Tracked</div><div class="detail-value num">${task.timer_running ? `<span data-elapsed-since="${esc(task.timer_start_time)}" data-elapsed-base="${tracked - secondsSince(task.timer_start_time)}" data-format="duration"></span>` : fmtDuration(tracked)}</div></div>
+        </div>
+        <p class="muted small">Time studying ${esc(category?.name)} in general, not tied to a specific task. It counts towards the class in Insights.</p>`
+            : `<div class="detail-grid">
           <div><div class="detail-label">Due</div><div class="detail-value">${task.due_date ? esc(fmtDue(task.due_date)) : "No due date"}</div></div>
           <div><div class="detail-label">Priority</div><div class="detail-value row" style="gap:0.4rem"><span class="priority-flag priority-${esc(task.priority)}"></span>${esc(task.priority[0].toUpperCase() + task.priority.slice(1))}</div></div>
           <div>
@@ -404,7 +419,8 @@ function renderDrawer() {
           <div><div class="detail-label">Repeats</div><div class="detail-value">${task.is_recurring ? `Every ${task.recurrence_interval_days} days` : "No"}</div></div>
           ${task.due_date ? `<div><div class="detail-label">Due exactly</div><div class="detail-value">${esc(fmtDateTime(task.due_date))}</div></div>` : ""}
           ${done && task.completed_at ? `<div><div class="detail-label">Completed</div><div class="detail-value">${esc(fmtDateTime(task.completed_at))}</div></div>` : ""}
-        </div>
+        </div>`
+        }
 
         ${task.description ? `<div class="drawer-section"><h3>Notes</h3><div class="description">${esc(task.description)}</div></div>` : ""}
 

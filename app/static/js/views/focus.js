@@ -1,14 +1,17 @@
 // Focus: countdown timer, Pomodoro cycles, and the stopwatch - each can be
-// linked to a task so the time is recorded against it.
+// linked to a task, or to a class as a whole ("general study"), so the time
+// is recorded against it.
 
 import {
   ICONS,
   esc,
   fmtClock,
   fmtDuration,
+  getCategory,
   getTask,
   isMobileApp,
   mutate,
+  parseTaskChoice,
   store,
   taskOptions,
   toast,
@@ -22,8 +25,20 @@ const PHASE_LABELS = { work: "Focus", short_break: "Short break", long_break: "L
 const ui = {
   tab: null, // countdown | pomodoro | stopwatch (null = follow the timer state)
   minutes: 25,
-  taskId: null,
+  // What to track time on, as a taskOptions() value: a task id, "cat:<id>"
+  // for general study on a class, or null for no task.
+  choice: null,
 };
+
+/** The picker value for a task, using "cat:<id>" for a class's general study task. */
+function choiceForTask(task) {
+  return task.is_general ? `cat:${task.category_id}` : String(task.id);
+}
+
+function choiceExists(choice) {
+  const { task_id: taskId, category_id: categoryId } = parseTaskChoice(choice);
+  return categoryId ? Boolean(getCategory(categoryId)) : Boolean(getTask(taskId));
+}
 
 const RING_SIZE = 280;
 const RING_STROKE = 14;
@@ -49,7 +64,7 @@ function taskPicker(selectedId) {
     <label class="field"><span>Work on</span>
       <select id="focus-task">
         <option value="">No task (just a timer)</option>
-        ${taskOptions(selectedId)}
+        ${taskOptions(selectedId, { byCategory: true })}
       </select>
     </label>`;
 }
@@ -149,8 +164,8 @@ function setupHtml(tab, state) {
     }
     return `
       <div class="focus-setup">
-        <p class="muted" style="margin:0">Counts up until you stop it. Every second is recorded on the task.</p>
-        ${taskPicker(ui.taskId)}
+        <p class="muted" style="margin:0">Counts up until you stop it. Every second is recorded on the task or class.</p>
+        ${taskPicker(ui.choice)}
         <button type="button" class="btn success lg" data-action="focus-stopwatch-start">${ICONS.play} Start stopwatch</button>
       </div>`;
   }
@@ -163,7 +178,7 @@ function setupHtml(tab, state) {
           ${settings.pomodoro_long_break_minutes} min break after every ${settings.pomodoro_cycles} sessions.
           <a href="#/settings">Change lengths</a>
         </p>
-        ${taskPicker(ui.taskId)}
+        ${taskPicker(ui.choice)}
         <button type="button" class="btn primary lg" data-action="focus-start" data-mode="pomodoro">Start ${settings.pomodoro_work_minutes}-minute focus</button>
       </div>`;
   }
@@ -176,7 +191,7 @@ function setupHtml(tab, state) {
       <label class="field"><span>Custom length <span class="field-hint">(minutes)</span></span>
         <input type="number" id="focus-minutes" min="1" max="1440" value="${ui.minutes}">
       </label>
-      ${taskPicker(ui.taskId)}
+      ${taskPicker(ui.choice)}
       <button type="button" class="btn primary lg" data-action="focus-start" data-mode="countdown">Start countdown</button>
     </div>`;
 }
@@ -222,10 +237,12 @@ export const focusView = {
     const focus = state.focus;
     const focusActive = focus.status !== "idle";
 
-    const requested = Number(params.get("task")) || null;
-    if (requested && getTask(requested)) ui.taskId = requested;
-    else if (ui.taskId && !getTask(ui.taskId)) ui.taskId = null;
-    if (ui.taskId === null && focus.task_id) ui.taskId = focus.task_id;
+    const requestedTask = getTask(params.get("task"));
+    const requestedCat = getCategory(params.get("cat"));
+    if (requestedTask) ui.choice = choiceForTask(requestedTask);
+    else if (requestedCat) ui.choice = `cat:${requestedCat.id}`;
+    else if (ui.choice && !choiceExists(ui.choice)) ui.choice = null;
+    if (ui.choice === null && getTask(focus.task_id)) ui.choice = choiceForTask(getTask(focus.task_id));
 
     let tab = ui.tab;
     if (focusActive) tab = focus.mode;
@@ -258,7 +275,7 @@ export const focusView = {
 
   mount(root) {
     const select = root.querySelector("#focus-task");
-    if (select) select.addEventListener("change", () => (ui.taskId = Number(select.value) || null));
+    if (select) select.addEventListener("change", () => (ui.choice = select.value || null));
     const minutes = root.querySelector("#focus-minutes");
     if (minutes) {
       minutes.addEventListener("input", () => {
@@ -283,7 +300,7 @@ registerActions({
   "focus-start": async (el) => {
     requestNotificationPermission();
     const mode = el.dataset.mode;
-    const body = { mode, task_id: ui.taskId };
+    const body = { mode, ...parseTaskChoice(ui.choice) };
     if (mode === "countdown") {
       const input = document.getElementById("focus-minutes");
       body.minutes = Number(input?.value) || ui.minutes;
@@ -305,12 +322,13 @@ registerActions({
   "focus-extend": (el) => mutate("POST", "/api/focus/extend", { minutes: Number(el.dataset.minutes) || 5 }),
   "focus-cancel": () => mutate("POST", "/api/focus/cancel"),
   "focus-stopwatch-start": async () => {
-    if (!ui.taskId) {
-      toast("Pick a task for the stopwatch to track time on.", "error");
+    const { task_id: taskId, category_id: categoryId } = parseTaskChoice(ui.choice);
+    if (!taskId && !categoryId) {
+      toast("Pick a task or class for the stopwatch to track time on.", "error");
       document.getElementById("focus-task")?.focus();
       return;
     }
-    await mutate("POST", `/api/tasks/${ui.taskId}/timer/start`);
+    await mutate("POST", categoryId ? `/api/categories/${categoryId}/timer/start` : `/api/tasks/${taskId}/timer/start`);
   },
   "enable-notifications": async () => {
     await requestNotificationPermission();

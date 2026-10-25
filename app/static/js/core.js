@@ -132,8 +132,18 @@ export function getTask(id) {
   return store.state?.tasks.find((t) => t.id === Number(id)) || null;
 }
 
+/** Real tasks only: leaves out each class's hidden "general study" task. */
+export function listedTasks() {
+  return (store.state?.tasks || []).filter((t) => !t.is_general);
+}
+
 export function openTasks() {
-  return (store.state?.tasks || []).filter((t) => t.status !== "done");
+  return listedTasks().filter((t) => t.status !== "done");
+}
+
+/** The class's general study task, if time has ever been tracked on the class itself. */
+export function generalTaskFor(categoryId) {
+  return store.state?.tasks.find((t) => t.is_general && t.category_id === Number(categoryId)) || null;
 }
 
 export function sortByDue(a, b) {
@@ -364,34 +374,60 @@ export function categoryOptions(selectedId, { includeEmpty = false } = {}) {
   );
 }
 
-/** <option>s for every open task, grouped by category. */
-export function taskOptions(selectedId, { includeDone = false } = {}) {
+/**
+ * <option>s for every open task, grouped by category. Each group starts with
+ * a "General study" choice for time on the class as a whole: with
+ * `byCategory` its value is "cat:<category id>" (for pickers that start
+ * something new), otherwise it's listed only once the class has a general
+ * study task, using that task's id.
+ */
+export function taskOptions(selectedId, { includeDone = false, byCategory = false } = {}) {
   const state = store.state;
   if (!state) return "";
+  const selected = String(selectedId ?? "");
+  const option = (value, label) => `<option value="${esc(value)}" ${selected === String(value) ? "selected" : ""}>${esc(label)}</option>`;
   return state.categories
     .map((c) => {
       const tasks = state.tasks
-        .filter((t) => t.category_id === c.id && (includeDone || t.status !== "done" || t.id === Number(selectedId)))
+        .filter((t) => t.category_id === c.id && !t.is_general && (includeDone || t.status !== "done" || String(t.id) === selected))
         .sort(sortByDue);
-      if (!tasks.length) return "";
-      const opts = tasks
-        .map((t) => `<option value="${t.id}" ${Number(selectedId) === t.id ? "selected" : ""}>${esc(t.title)}</option>`)
-        .join("");
-      return `<optgroup label="${esc(c.name)}">${opts}</optgroup>`;
+      const general = byCategory ? `cat:${c.id}` : generalTaskFor(c.id)?.id;
+      const opts = (general ? option(general, "General study (no specific task)") : "") + tasks.map((t) => option(t.id, t.title)).join("");
+      return opts ? `<optgroup label="${esc(c.name)}">${opts}</optgroup>` : "";
     })
     .join("");
+}
+
+/** Splits a taskOptions() value into { task_id } or { category_id } for the API. */
+export function parseTaskChoice(value) {
+  const text = String(value || "");
+  if (text.startsWith("cat:")) return { category_id: Number(text.slice(4)) || null };
+  return { task_id: Number(text) || null };
 }
 
 // ---------------------------------------------------------------------------
 // Toasts
 // ---------------------------------------------------------------------------
 
-export function toast(message, type = "") {
+/** Show a short message. `action` ({ label, onClick }) adds a button, e.g. Undo. */
+export function toast(message, type = "", { action = null } = {}) {
   const root = document.getElementById("toast-root");
   if (!root) return;
   const el = document.createElement("div");
   el.className = `toast ${type}`;
   el.textContent = message;
+  if (action) {
+    el.classList.add("has-action");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "toast-action";
+    button.textContent = action.label;
+    button.addEventListener("click", () => {
+      el.remove();
+      action.onClick();
+    });
+    el.appendChild(button);
+  }
   root.appendChild(el);
-  setTimeout(() => el.remove(), type === "error" ? 6000 : 3000);
+  setTimeout(() => el.remove(), type === "error" || action ? 6000 : 3000);
 }

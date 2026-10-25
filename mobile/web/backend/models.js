@@ -10,6 +10,7 @@ export const CATEGORY_KINDS = ["class", "extracurricular"];
 export const TASK_PRIORITIES = ["low", "medium", "high"];
 export const THEMES = ["system", "light", "dark"];
 export const WEEKDAY_ABBR = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+export const GENERAL_TASK_TITLE = "General study";
 
 export const CATEGORY_COLOR_PALETTE = [
   "#4cc9f0", "#4895ef", "#4361ee", "#3f37c9", "#7209b7",
@@ -113,6 +114,33 @@ export function activeLogForTask(db, task) {
   return taskLogs(db, task).find((l) => l.end_time === null) || null;
 }
 
+/** "Math · General study" for a category's general study task, else the title. */
+export function displayTitle(db, task) {
+  if (!task.is_general) return task.title;
+  return `${findById(db, "categories", task.category_id).name} \u00b7 ${GENERAL_TASK_TITLE}`;
+}
+
+/** The category's "general study" task, created the first time it's needed. */
+export function generalTask(db, category, now) {
+  return (
+    db.tasks.find((t) => t.category_id === category.id && t.is_general) ||
+    insert(db, "tasks", {
+      category_id: category.id,
+      title: GENERAL_TASK_TITLE,
+      description: "",
+      due_date: null,
+      priority: "medium",
+      estimated_minutes: null,
+      status: "in_progress",
+      is_recurring: false,
+      recurrence_interval_days: null,
+      is_general: true,
+      created_at: now,
+      completed_at: null,
+    })
+  );
+}
+
 /** The next copy of a repeating task, added after this one is completed. */
 export function spawnNextOccurrence(db, task, now) {
   if (!task.is_recurring || !task.recurrence_interval_days) return null;
@@ -126,6 +154,7 @@ export function spawnNextOccurrence(db, task, now) {
     status: "todo",
     is_recurring: true,
     recurrence_interval_days: task.recurrence_interval_days,
+    is_general: false,
     created_at: now,
     completed_at: null,
   });
@@ -147,7 +176,8 @@ export function taskToDict(db, task, now) {
   return {
     id: task.id,
     category_id: task.category_id,
-    title: task.title,
+    title: displayTitle(db, task),
+    is_general: Boolean(task.is_general),
     description: task.description || "",
     due_date: isoLocal(task.due_date),
     priority: task.priority,
@@ -188,7 +218,7 @@ export function logToDict(log, now) {
 export function serializeLog(db, log, now) {
   const task = findById(db, "tasks", log.task_id);
   const category = findById(db, "categories", task.category_id);
-  return { ...logToDict(log, now), task_title: task.title, category_id: task.category_id, category_color: category.color };
+  return { ...logToDict(log, now), task_title: displayTitle(db, task), category_id: task.category_id, category_color: category.color };
 }
 
 export function periodLabel(settings) {
@@ -238,7 +268,7 @@ export function focusToDict(db, focus, now) {
     status: focus.status,
     phase: focus.phase,
     task_id: task ? task.id : null,
-    task_title: task ? task.title : null,
+    task_title: task ? displayTitle(db, task) : null,
     category_color: category ? category.color : null,
     duration_seconds: focus.duration_seconds,
     remaining_seconds: focusRemainingSeconds(focus, now),

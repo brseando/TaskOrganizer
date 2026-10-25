@@ -9,7 +9,7 @@ Callers are responsible for committing the session.
 from datetime import datetime
 
 from app.extensions import db
-from app.models import FocusTimer, Settings, Task, TimeLog
+from app.models import GENERAL_TASK_TITLE, FocusTimer, Settings, Task, TimeLog
 
 
 def active_log():
@@ -41,6 +41,23 @@ def _open_log(task, source, at):
     db.session.add(log)
     db.session.flush()
     return log
+
+
+def general_task(category):
+    """The category's "general study" task, created the first time it's needed."""
+    task = Task.query.filter_by(category_id=category.id, is_general=True).first()
+    if task is None:
+        task = Task(
+            category_id=category.id,
+            title=GENERAL_TASK_TITLE,
+            priority="medium",
+            status="in_progress",
+            is_recurring=False,
+            is_general=True,
+        )
+        db.session.add(task)
+        db.session.flush()
+    return task
 
 
 def start_stopwatch(task):
@@ -189,7 +206,7 @@ def serialize_active_log(log):
     return {
         "log_id": log.id,
         "task_id": log.task_id,
-        "task_title": log.task.title,
+        "task_title": log.task.display_title,
         "category_color": log.task.category.color,
         "start_time": log.start_time.isoformat(timespec="seconds"),
         "source": log.effective_source,

@@ -54,7 +54,17 @@ function nowCard(state) {
   }
   return `
     <div class="stat-label">Nothing running</div>
-    <div class="muted">Start a timer on a task below, or begin a focus session.</div>
+    <div class="muted">Start a timer on a task below, study a class in general, or begin a focus session.</div>
+    ${
+      state.categories.length
+        ? `<div class="row"><span class="small muted">Study:</span>${state.categories
+            .map(
+              (c) =>
+                `<button type="button" class="btn sm" data-action="start-category-timer" data-category-id="${c.id}" title="Track general study time on ${esc(c.name)}"><span class="dot" style="background:${esc(c.color)}"></span>${esc(c.name)}</button>`
+            )
+            .join("")}</div>`
+        : ""
+    }
     <div class="row">
       <a class="btn sm primary" href="#/focus">Start a focus session</a>
     </div>`;

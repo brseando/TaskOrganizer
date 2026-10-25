@@ -23,12 +23,14 @@ backup files.
 - **Tasks**: every task, grouped by class or activity. You can search,
   filter by status, priority, or due date, sort, and see completed history.
   A period bar shows planned, remaining, and actual time for "this period"
-  (Mon–Sun by default; you can pick any range).
+  (Mon–Sun by default; you can pick any range). Each class or activity has a
+  **Study** button that times general studying on that class without
+  picking a task.
 - **Calendar**: month and week views of due dates, with the time you
   tracked on each day. Click a day to add a task due then.
 - **Focus**: a countdown timer ("give me 45 minutes on this"), a Pomodoro
-  timer (focus/break cycles), or a plain stopwatch. Time on a linked task is
-  recorded automatically. When a timer ends you get a chime and a desktop
+  timer (focus/break cycles), or a plain stopwatch. Time on a linked task, or
+  on a class as a whole ("General study"), is recorded automatically. When a timer ends you get a chime and a desktop
   notification, even if the tab is in the background.
 - **Insights**: time per day (stacked by class), totals by class, a
   six-month heatmap, busiest weekdays, goal streaks, and how accurate your
@@ -45,6 +47,8 @@ Other helpers:
 - **Forgotten-timer banner**: if a timer has been running longer than your
   warning threshold (3 hours by default), the app asks whether you're still
   working and lets you set when you actually stopped.
+- **Undo**: the "marked done" message has an **Undo** button that reopens
+  the task right away.
 - **Repeating tasks**: completing a repeating task creates the next one.
 - **Keyboard shortcuts**: `N` new task, `/` search, `T` stop the running
   timer (or open Focus), `1`–`6` switch views, `?` show all shortcuts,
@@ -459,6 +463,7 @@ TaskOrganizer/
     dist/                 Built phone app (created by build.py, gitignored)
   .github/workflows/
     publish-phone-app.yml Builds mobile/ and publishes it to GitHub Pages
+  CLAUDE.md               Notes for AI coding agents working on this code
   run.py                  Plain dev entry point (`python run.py`)
   requirements.txt
   instance/tasks.db       Local dev database (created automatically, gitignored)

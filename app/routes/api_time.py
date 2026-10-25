@@ -5,7 +5,7 @@ from flask import Blueprint, jsonify, request
 
 from app import timers
 from app.extensions import db
-from app.models import FocusTimer, Settings, Task, TimeLog
+from app.models import Category, FocusTimer, Settings, Task, TimeLog
 from app.routes.api_tasks import serialize_log, serialize_task
 from app.routes.common import combine_date_time, json_error, json_ok, parse_int, payload
 from app.stats import day_start, parse_date
@@ -26,6 +26,15 @@ def finish_expired_focus_timer():
 @bp.route("/tasks/<int:task_id>/timer/start", methods=["POST"])
 def start_timer(task_id):
     task = db.get_or_404(Task, task_id)
+    log = timers.start_stopwatch(task)
+    db.session.commit()
+    return json_ok(task_id=task.id, start_time=log.start_time.isoformat(timespec="seconds"))
+
+
+@bp.route("/categories/<int:category_id>/timer/start", methods=["POST"])
+def start_category_timer(category_id):
+    """Track time on a class/activity as a whole (its general study task)."""
+    task = timers.general_task(db.get_or_404(Category, category_id))
     log = timers.start_stopwatch(task)
     db.session.commit()
     return json_ok(task_id=task.id, start_time=log.start_time.isoformat(timespec="seconds"))
@@ -78,9 +87,18 @@ def trim_timer():
 
 @bp.route("/tasks/<int:task_id>/timer/log", methods=["POST"])
 def log_manual_time(task_id):
+    return _log_manual_time(db.get_or_404(Task, task_id))
+
+
+@bp.route("/categories/<int:category_id>/timer/log", methods=["POST"])
+def log_manual_category_time(category_id):
+    task = timers.general_task(db.get_or_404(Category, category_id))
+    return _log_manual_time(task)
+
+
+def _log_manual_time(task):
     """Add a finished session by hand. Defaults to ending "just now"; an
     optional date/time back-dates it."""
-    task = db.get_or_404(Task, task_id)
     data = payload()
 
     minutes = parse_int(data.get("minutes"), minimum=1)
@@ -194,6 +212,13 @@ def focus_start():
     task_id = parse_int(data.get("task_id"))
     if task_id and not db.session.get(Task, task_id):
         return json_error("That task no longer exists.")
+    # A focus session on a class as a whole, not one of its tasks.
+    category_id = parse_int(data.get("category_id"))
+    if category_id and not task_id:
+        category = db.session.get(Category, category_id)
+        if not category:
+            return json_error("That class or activity no longer exists.")
+        task_id = timers.general_task(category).id
 
     if mode == "pomodoro":
         minutes = Settings.get().pomodoro_work_minutes

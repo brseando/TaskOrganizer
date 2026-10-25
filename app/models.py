@@ -2,7 +2,9 @@
 
 Tables:
 - Category: a class or extracurricular that tasks belong to.
-- Task: a single homework/assignment/todo item.
+- Task: a single homework/assignment/todo item. Each category can also have
+  one hidden "general study" task (is_general) that holds time tracked on
+  the class as a whole rather than on a specific task.
 - TimeLog: one tracked session (stopwatch, focus timer, or manual entry)
   against a task.
 - Settings: a single row of app-wide preferences.
@@ -24,6 +26,7 @@ TASK_PRIORITIES = ("low", "medium", "high")
 TASK_STATUSES = ("todo", "in_progress", "done")
 TIME_LOG_SOURCES = ("stopwatch", "manual", "countdown", "pomodoro")
 THEMES = ("system", "light", "dark")
+GENERAL_TASK_TITLE = "General study"
 
 WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 WEEKDAY_ABBR = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
@@ -78,6 +81,9 @@ class Task(db.Model):
 
     is_recurring = db.Column(db.Boolean, nullable=False, default=False)
     recurrence_interval_days = db.Column(db.Integer, nullable=True)
+    # The category's "general study" task: never shown in task lists and
+    # can't be completed. Created on demand by timers.general_task().
+    is_general = db.Column(db.Boolean, nullable=False, default=False)
 
     created_at = db.Column(db.DateTime, default=datetime.now)
     completed_at = db.Column(db.DateTime, nullable=True)
@@ -97,6 +103,12 @@ class Task(db.Model):
             if log.end_time is None:
                 return log
         return None
+
+    @property
+    def display_title(self):
+        if self.is_general:
+            return f"{self.category.name} \u00b7 {GENERAL_TASK_TITLE}"
+        return self.title
 
     @property
     def is_overdue(self):
@@ -138,7 +150,8 @@ class Task(db.Model):
         return {
             "id": self.id,
             "category_id": self.category_id,
-            "title": self.title,
+            "title": self.display_title,
+            "is_general": bool(self.is_general),
             "description": self.description or "",
             "due_date": _iso(self.due_date),
             "priority": self.priority,
@@ -315,7 +328,7 @@ class FocusTimer(db.Model):
             "status": self.status,
             "phase": self.phase,
             "task_id": task.id if task else None,
-            "task_title": task.title if task else None,
+            "task_title": task.display_title if task else None,
             "category_color": task.category.color if task else None,
             "duration_seconds": self.duration_seconds,
             "remaining_seconds": self.remaining_seconds,

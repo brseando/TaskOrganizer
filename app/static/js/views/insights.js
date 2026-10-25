@@ -11,6 +11,7 @@ import {
   fmtShortDate,
   fmtTime,
   mutate,
+  parseTaskChoice,
   parseYmd,
   store,
   taskOptions,
@@ -323,7 +324,7 @@ function openAddEntry() {
     title: "Add a time entry",
     body: `
       <form class="form-grid" data-add-entry>
-        <label class="field full"><span>Task</span><select name="task_id" required><option value="">Choose&hellip;</option>${taskOptions(null, { includeDone: true })}</select></label>
+        <label class="field full"><span>Task</span><select name="task_id" required><option value="">Choose&hellip;</option>${taskOptions(null, { includeDone: true, byCategory: true })}</select></label>
         <label class="field"><span>Minutes</span><input type="number" name="minutes" min="1" required placeholder="e.g. 45"></label>
         <label class="field"><span>Date</span><input type="date" name="logged_date" value="${toYmd(today)}" max="${toYmd(today)}"></label>
         <label class="field"><span>Start time</span><input type="time" name="logged_time" value="${String(today.getHours()).padStart(2, "0")}:00"></label>
@@ -338,7 +339,9 @@ function openAddEntry() {
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         const values = formValues(form);
-        const result = await mutate("POST", `/api/tasks/${values.task_id}/timer/log`, values, "Entry added");
+        const { task_id: taskId, category_id: categoryId } = parseTaskChoice(values.task_id);
+        const url = categoryId ? `/api/categories/${categoryId}/timer/log` : `/api/tasks/${taskId}/timer/log`;
+        const result = await mutate("POST", url, values, "Entry added");
         if (result) modal.close();
       });
     },
